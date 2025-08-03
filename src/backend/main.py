@@ -1,6 +1,11 @@
 from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 from typing import Optional
+import pandas as pd
+from utils import slidingWindow
+from sklearn.linear_model import LinearRegression
+
+import requests
 
 app = FastAPI()
 
@@ -66,5 +71,34 @@ def stock_history(symbol: str, period: str = Query('1mo')):
 
 @app.get("/api/stock/{symbol}/predict")
 def predict_price(symbol: str):
-    # Placeholder return
-    return {"symbol": symbol.upper(), "predicted_close_price": "Coming Soon"}
+    response = requests.get(f"http://localhost:8000/api/stock/{symbol}/history")
+    df = pd.DataFrame(response.json()["data"])
+    closingPrices = df['close'].values
+    x_values, y_values = slidingWindow(closingPrices, 3, [], [])
+
+    model = LinearRegression()
+    model.fit(x_values, y_values)
+    lastWindow = closingPrices[-3:]
+    prediction = model.predict([lastWindow])
+
+
+    print("Predicted next close:", prediction[0])
+    return {
+        "symbol": symbol.upper(),
+        "last_window": list(lastWindow),
+        "predicted_close_price": round(prediction[0], 2)
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
