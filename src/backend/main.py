@@ -40,7 +40,7 @@ def stock_price(symbol: str):
 
 
 @app.get("/api/stock/{symbol}/history")
-def stock_history(symbol: str, period: str = Query('1mo')):
+def stock_history(symbol: str, period: str = Query('3mo')):
     try:
         ticker = yf.Ticker(symbol)
         # Get actual historical data
@@ -70,15 +70,17 @@ def stock_history(symbol: str, period: str = Query('1mo')):
         raise HTTPException(status_code=500, detail=f"Error fetching history for {symbol}")
 
 @app.get("/api/stock/{symbol}/predict")
-def predict_price(symbol: str):
+def predict_price(symbol: str, windowSize: int = Query(3)):
     response = requests.get(f"http://localhost:8000/api/stock/{symbol}/history")
     df = pd.DataFrame(response.json()["data"])
     closingPrices = df['close'].values
-    x_values, y_values = slidingWindow(closingPrices, 3, [], [])
+    x_values, y_values = slidingWindow(closingPrices, windowSize, [], [])
+    if len(x_values) == 0 or len(y_values) == 0:
+        raise HTTPException(status_code=400, detail="Not enough data for the given window size.")
 
     model = LinearRegression()
     model.fit(x_values, y_values)
-    lastWindow = closingPrices[-3:]
+    lastWindow = closingPrices[-windowSize:]
     prediction = model.predict([lastWindow])
 
 
