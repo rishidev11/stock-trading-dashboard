@@ -1,3 +1,5 @@
+
+
 def add_technical_features(df):
     # 1. SMA_5: 5-day Simple Moving Average - short-term trend signal
     df["SMA_5"] = df['close'].rolling(5).mean()
@@ -28,3 +30,21 @@ def add_technical_features(df):
     df["volume_ratio"] = df["volume"] / df["volume"].rolling(10).mean()
 
     return df
+
+
+import requests
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+key = "53746e59369d4b3db63904264741f5a3"
+def fetch_news_headlines(symbol):
+    url = f"https://newsapi.org/v2/everything?q={symbol}&apiKey={key}"
+    response = requests.get(url)
+    return [article['title'] for article in response.json().get('articles', [])[:10]]
+
+def analyze_sentiment(headlines):
+    analyzer = SentimentIntensityAnalyzer()
+    scores = [analyzer.polarity_scores(headline)['compound'] for headline in headlines]
+    return sum(scores) / len(scores) if scores else 0
+
+
+

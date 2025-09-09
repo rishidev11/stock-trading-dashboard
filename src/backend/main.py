@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 from typing import Optional
 import pandas as pd
-from utils import add_technical_features
+from utils import add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
 import requests
 
@@ -110,3 +110,19 @@ def predict_price(symbol: str, windowSize: int = Query(3)):
         "last_window": df.iloc[-windowSize:][feature_cols].to_dict(orient="records"),
         "predicted_close_price": round(prediction[0], 2)
     }
+
+@app.get("/api/stock/{symbol}/sentiment")
+def get_sentiment(symbol: str):
+    headlines = fetch_news_headlines(symbol)
+    score = analyze_sentiment(headlines)
+    return {
+        "symbol": symbol.upper(),
+        "sentiment_score": round(score, 3),
+        "status": (
+            "Positive" if score > 0.05 else
+            "Negative" if score < -0.05 else
+            "Neutral"
+        ),
+        "headlines": headlines
+    }
+
