@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 from typing import Optional
 import pandas as pd
-from utils import add_technical_features, fetch_news_headlines, analyze_sentiment
+from utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
 import requests
 
@@ -16,7 +16,7 @@ def main():
 
 
 @app.get("/api/stock/{symbol}")
-def stock_price(symbol: str):
+def stock_price(symbol: str, target_currency: str = Query("USD")):
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info
@@ -25,38 +25,47 @@ def stock_price(symbol: str):
         if not info or 'currentPrice' not in info:
             raise HTTPException(status_code=404, detail=f"Stock {symbol} not found")
 
+
+        base_currency = info.get("currency", "USD")
+        current = convert_currency(info.get("currentPrice"),base_currency,target_currency)
+        previous = convert_currency(info.get("previousClose"),base_currency,target_currency)
         # Return key stock details
         return {
             "symbol": symbol.upper(),
-            "current_price": info.get("currentPrice"),
-            "previous_close": info.get("previousClose"),
-            "day_change": info.get("currentPrice", 0) - info.get("previousClose", 0),
-            "day_change_percent": ((info.get("currentPrice", 0) - info.get("previousClose", 0)) / info.get("previousClose", 1)) * 100,
+            "current_price": current,
+            "previous_close": previous,
+            "day_change": round(current - previous, 2),
+            "day_change_percent": ((current - previous) / previous) * 100 if previous != 0 else 0,
             "company_name": info.get("longName", "Unknown"),
-            "currency": info.get("currency", "USD")
+            "currency": target_currency
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching data for {symbol}")
 
 
 @app.get("/api/stock/{symbol}/history")
-def stock_history(symbol: str, period: str = Query('3mo')):
+def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str = Query("USD")):
     try:
         ticker = yf.Ticker(symbol)
+        info = ticker.info
         hist = ticker.history(period=period)
+        # Apply rate to all values: row['Open'] * rate, etc.
 
         if hist.empty:
             raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
 
         # Convert historical OHLCV data into JSON-friendly format
         history_data = []
+        base_currency = info.get("currency", "USD")
+        rate = get_conversion_rate(base_currency, target_currency)
+
         for date, row in hist.iterrows():
             history_data.append({
                 "date": date.strftime("%Y-%m-%d"),
-                "open": round(row['Open'], 2),
-                "high": round(row['High'], 2),
-                "low": round(row['Low'], 2),
-                "close": round(row['Close'], 2),
+                "open": round(row['Open'] * rate, 2),
+                "high": round(row['High'] * rate, 2),
+                "low": round(row['Low'] * rate, 2),
+                "close": round(row['Close'] * rate, 2),
                 "volume": int(row['Volume'])
             })
 
@@ -70,14 +79,31 @@ def stock_history(symbol: str, period: str = Query('3mo')):
 
 
 @app.get("/api/stock/{symbol}/predict")
-def predict_price(symbol: str, windowSize: int = Query(3)):
-    # Get historical data from our own API
-    response = requests.get(f"http://localhost:8000/api/stock/{symbol}/history")
-    if response.status_code != 200:
-        raise HTTPException(status_code=404, detail="Failed to retrieve historical data")
+def predict_price(symbol: str, windowSize: int = Query(3), target_currency: str = Query("USD")):
+    ticker = yf.Ticker(symbol)
+    info = ticker.info
+
+    hist = ticker.history(period='3mo')  # Get data directly instead of calling your own API
+
+    if hist.empty:
+        raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
+
+    history_data = []
+    base_currency = info.get("currency", "USD")
+    rate = get_conversion_rate(base_currency, target_currency)
+
+    for date, row in hist.iterrows():
+        history_data.append({
+            "date": date.strftime("%Y-%m-%d"),
+                "open": round(row['Open'] * rate, 2),
+                "high": round(row['High'] * rate, 2),
+                "low": round(row['Low'] * rate, 2),
+                "close": round(row['Close'] * rate, 2),
+                "volume": int(row['Volume'])
+        })
 
     # Load data into DataFrame and enrich with technical indicators
-    df = pd.DataFrame(response.json()["data"])
+    df = pd.DataFrame(history_data)
     df = add_technical_features(df)
     df = df.dropna().reset_index(drop=True)  # Drop rows with NaNs caused by rolling indicators
 
@@ -104,6 +130,8 @@ def predict_price(symbol: str, windowSize: int = Query(3)):
     lastWindow = df.iloc[-windowSize:][feature_cols].values.flatten()
     prediction = model.predict([lastWindow])
     df[feature_cols] = df[feature_cols].round(2)
+
+    base_currency = info.get("currency", "USD")
 
     return {
         "symbol": symbol.upper(),

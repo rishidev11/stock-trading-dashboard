@@ -1,4 +1,49 @@
+import requests
 
+
+def get_conversion_rate(from_currency, to_currency):
+    """Get conversion rate without converting a specific amount"""
+    if from_currency == to_currency:
+        return 1.0
+    try:
+        key = "9c963643d7d186655a968060"
+        url = f"https://v6.exchangerate-api.com/v6/{key}/pair/{from_currency}/{to_currency}"
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        if 'conversion_rate' in data:
+            return data['conversion_rate']
+        else:
+            print(f"Rate fetch failed: {data}")
+            return 1.0
+
+    except Exception as e:
+        print(f"Rate fetch error: {e}")
+        return 1.0
+
+def convert_currency(amount, from_currency, to_currency):
+    if from_currency == to_currency:
+        # no conversion needed
+        return amount
+    try:
+        key = "9c963643d7d186655a968060"
+        url = f"https://v6.exchangerate-api.com/v6/{key}/pair/{from_currency}/{to_currency}/{amount}"
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()  # Raises exception for bad status codes
+        data = response.json()
+
+        # The exchangerate-host API returns the converted amount directly in 'result'
+        if 'conversion_result' in data:
+            return round(data['conversion_result'], 2)
+        else:
+            print(f"Currency conversion failed: {data}")
+            return amount
+
+    except Exception as e:
+        print(f"Currency conversion error: {e}")
+        # fallback to original value
+        return amount
 
 def add_technical_features(df):
     # 1. SMA_5: 5-day Simple Moving Average - short-term trend signal
@@ -32,7 +77,6 @@ def add_technical_features(df):
     return df
 
 
-import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 key = "53746e59369d4b3db63904264741f5a3"
