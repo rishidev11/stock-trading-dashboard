@@ -2,11 +2,18 @@ from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 from typing import Optional
 import pandas as pd
-from utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
+from .utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
 import requests
+from .database import engine, Base
+from .models import User, Holding, Transaction
 
 app = FastAPI()
+
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
 
 
 @app.get("/")
