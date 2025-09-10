@@ -2,18 +2,20 @@ from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 from typing import Optional
 import pandas as pd
-from .utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
+from backend.utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
 import requests
-from .database import engine, Base
-from .models import User, Holding, Transaction
+from backend.database import engine, Base
+from backend.models import User, Holding, Transaction
+import backend.auth as auth
 
 app = FastAPI()
-
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 
 
 @app.get("/")
