@@ -8,6 +8,7 @@ import requests
 from backend.database import engine, Base
 from backend.models import User, Holding, Transaction
 import backend.auth as auth
+import backend.portfolio as portfolio
 
 app = FastAPI()
 

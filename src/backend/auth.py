@@ -5,6 +5,24 @@ import backend.models as models
 from passlib.context import CryptContext
 from pydantic import BaseModel
 import bcrypt
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from fastapi import Security
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+
+# Secret key made public for testing purposes
+SECRET_KEY = "supersecretkey"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,4 +62,27 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user or not pwd_context.verify(user.password, db_user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    return {"message": "Login successful", "user_id": db_user.id}
+    access_token = create_access_token(data={"sub": str(db_user.id)})
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# Change this line
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials  # Extract the actual token
+    try:
+        payload = jwt.decode(token, SECRET_KEY, [ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    db_user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    if db_user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return db_user
+
