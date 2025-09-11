@@ -85,11 +85,58 @@ def buy_stock(shares: StockQuantity, db: Session = Depends(get_db), user=Depends
 
 
 
+@router.post("/sell")
+def sell_stock(shares: StockQuantity, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    ticker = shares.ticker.upper()
+    quantity = shares.quantity
 
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
 
+    holding = db.query(models.Holding).filter(
+        models.Holding.user_id == user.id,
+        models.Holding.symbol == ticker
+    ).first()
 
+    if holding:
+        if quantity > holding.quantity:
+            raise HTTPException(status_code=400, detail="Cannot sell more shares than you currently hold")
 
+        resp = requests.get(f"http://localhost:8000/api/stock/{ticker}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Invalid ticker")
 
+        ticker_price = round(resp.json()["current_price"], 2)
+        total_price = round(ticker_price * quantity, 2)
 
+        user.balance += total_price
 
+        if quantity == holding.quantity:
+            db.delete(holding)
+        else:
+            holding.quantity -= quantity
+            db.add(holding)
 
+        transaction = models.Transaction(
+            user_id=user.id,
+            symbol=ticker,
+            trade_type="SELL",
+            quantity=quantity,
+            price=ticker_price,
+            amount=total_price,
+            timestamp=datetime.utcnow()
+        )
+
+        db.add(transaction)
+        db.commit()
+        db.refresh(transaction)
+
+        return {
+            "message": f"Sold {quantity} shares of {ticker} at {ticker_price:.2f}",
+            "user": user.email,
+            "balance": user.balance,
+            "timestamp": transaction.timestamp.isoformat()
+        }
+
+    else:
+        raise HTTPException(status_code=400, detail="No holding of this stock exists")
