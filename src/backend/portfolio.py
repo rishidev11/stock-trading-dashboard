@@ -183,3 +183,36 @@ def sell_stock(shares: StockQuantity, db: Session = Depends(get_db), user=Depend
 
     else:
         raise HTTPException(status_code=400, detail="No holding of this stock exists")
+
+
+from fastapi import Query
+
+@router.get("/transactions")
+def show_transactions(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = 0
+):
+    query = db.query(models.Transaction).filter(models.Transaction.user_id == user.id)
+    total = query.count()
+    transactions = (
+        query.order_by(models.Transaction.timestamp.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "total": total,
+        "transactions": [
+            {
+                "symbol": t.symbol,
+                "trade_type": t.trade_type,
+                "quantity": t.quantity,
+                "price": t.price,
+                "amount": t.amount,
+                "timestamp": t.timestamp.isoformat()
+            } for t in transactions
+        ]
+    }
