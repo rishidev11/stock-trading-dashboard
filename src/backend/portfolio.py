@@ -15,10 +15,53 @@ class StockQuantity(BaseModel):
 @router.get("/")
 def show_portfolio(db: Session = Depends(get_db), user = Depends(get_current_user)):
     holdings = db.query(models.Holding).filter(models.Holding.user_id == user.id).all()
+
+    portfolio_holdings = []
+    total_market_value = 0.0
+    total_cost_basis = 0.0
+
+    for holding in holdings:
+        # Get current price for each holding
+        try:
+            resp = requests.get(f"http://localhost:8000/api/stock/{holding.symbol}")
+            if resp.status_code == 200:
+                current_price = round(resp.json()["current_price"], 2)
+            else:
+                # Fallback to avg price if API fails
+                current_price = holding.avg_price
+        except:
+            # Fallback on error
+            current_price = holding.avg_price
+
+        market_value = round(current_price * holding.quantity, 2)
+        cost_basis = round(holding.avg_price * holding.quantity, 2)
+        unrealised_pnl = round(market_value - cost_basis, 2)
+
+        total_market_value += market_value
+        total_cost_basis += cost_basis
+
+        portfolio_holdings.append({
+            "symbol": holding.symbol,
+            "quantity": holding.quantity,
+            "avg_price": holding.avg_price,
+            "current_price": current_price,
+            "market_value": market_value,
+            "cost_basis": cost_basis,
+            "unrealised_pnl": unrealised_pnl,
+            "pnl_percentage": round((unrealised_pnl / cost_basis * 100), 2) if cost_basis > 0 else 0
+        })
+
+    total_unrealised_pnl = round(total_market_value - total_cost_basis, 2)
+    total_portfolio_value = round(user.balance + total_market_value, 2)
+
     return {
         "user": user.email,
-        "balance": user.balance,
-        "holdings": [{"stock": h.symbol, "quantity": h.quantity} for h in holdings]
+        "cash_balance": round(user.balance, 2),
+        "holdings_market_value": round(total_market_value, 2),
+        "total_portfolio_value": total_portfolio_value,
+        "total_unrealised_pnl": total_unrealised_pnl,
+        "pnl_percentage": round((total_unrealised_pnl / total_cost_basis * 100), 2) if total_cost_basis > 0 else 0,
+        "holdings": portfolio_holdings
     }
 
 @router.post("/buy")
