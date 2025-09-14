@@ -221,7 +221,7 @@ def dashboard_page():
             st.metric("Total Portfolio", f"${total_value:.2f}")
 
         with col4:
-            pnl = portfolio_data.get('total_unrealized_pnl', 0)
+            pnl = portfolio_data.get('total_unrealised_pnl', 0)
             pnl_color = "normal" if pnl >= 0 else "inverse"
             st.metric("P&L", f"${pnl:.2f}", delta=f"{pnl:.2f}", delta_color=pnl_color)
 
@@ -250,7 +250,7 @@ def dashboard_page():
                     st.write(f"Current: ${current_price:.2f}")
 
                 with col5:
-                    pnl = holding.get('unrealized_pnl', 0)
+                    pnl = holding.get('unrealised_pnl', 0)
                     pnl_pct = holding.get('pnl_percentage', 0)
                     color = "🟢" if pnl >= 0 else "🔴"
                     st.write(f"{color} ${pnl:.2f} ({pnl_pct:.1f}%)")
