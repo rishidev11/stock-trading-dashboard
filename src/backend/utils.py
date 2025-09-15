@@ -1,6 +1,5 @@
 import requests
 
-
 def get_conversion_rate(from_currency, to_currency):
     """Get conversion rate without converting a specific amount"""
     if from_currency == to_currency:

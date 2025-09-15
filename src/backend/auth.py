@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal
 import backend.models as models
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -9,11 +8,13 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi import Security
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+from backend.database import get_db
 
 # Secret key made public for testing purposes
 SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -28,18 +29,14 @@ router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 class UserLogin(BaseModel):
     email: str
     password: str
 
+
+def get_password_hash(password: str):
+    """Hash a plain text password for secure storage"""
+    return pwd_context.hash(password)
 
 @router.get("/test")
 def test():
@@ -48,7 +45,7 @@ def test():
 
 @router.post("/register")
 def register_user(user:UserLogin, db: Session = Depends(get_db)):
-    hashed_pw = pwd_context.hash(user.password)
+    hashed_pw = get_password_hash(user.password)
     db_user = models.User(email=user.email, password_hash=hashed_pw, balance=100000.0)
     db.add(db_user)
     db.commit()

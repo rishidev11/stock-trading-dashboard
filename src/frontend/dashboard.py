@@ -433,6 +433,91 @@ def stock_detail_page():
                     with col2:
                         st.write(f"{direction} Direction: {'Up' if prediction_change > 0 else 'Down'}")
 
+                        # Add this section in your stock_detail_page() function, right after the AI Prediction section
+
+                        # Sentiment Analysis section
+                        st.subheader("📰 News Sentiment Analysis")
+
+                        try:
+                            sentiment_response = requests.get(f"{API_BASE}/api/stock/{symbol}/sentiment")
+                            if sentiment_response.status_code == 200:
+                                sentiment_data = sentiment_response.json()
+
+                                # Sentiment overview
+                                col1, col2, col3 = st.columns(3)
+
+                                with col1:
+                                    score = sentiment_data['sentiment_score']
+                                    status = sentiment_data['status']
+
+                                    # Color code based on sentiment
+                                    if status == "Positive":
+                                        sentiment_color = "🟢"
+                                        delta_color = "normal"
+                                    elif status == "Negative":
+                                        sentiment_color = "🔴"
+                                        delta_color = "inverse"
+                                    else:
+                                        sentiment_color = "🟡"
+                                        delta_color = "off"
+
+                                    st.metric(
+                                        "Sentiment Score",
+                                        f"{score:.3f}",
+                                        delta=f"{status}",
+                                        delta_color=delta_color
+                                    )
+
+                                with col2:
+                                    st.write(f"**Status:** {sentiment_color} {status}")
+
+                                    # Add interpretation
+                                    if score > 0.1:
+                                        interpretation = "Very Positive"
+                                    elif score > 0.05:
+                                        interpretation = "Slightly Positive"
+                                    elif score < -0.1:
+                                        interpretation = "Very Negative"
+                                    elif score < -0.05:
+                                        interpretation = "Slightly Negative"
+                                    else:
+                                        interpretation = "Neutral"
+
+                                    st.write(f"**Interpretation:** {interpretation}")
+
+                                with col3:
+                                    headlines_count = len(sentiment_data.get('headlines', []))
+                                    st.metric("News Articles", headlines_count)
+
+                                # Headlines section
+                                headlines = sentiment_data.get('headlines', [])
+                                if headlines:
+                                    st.markdown("#### Recent Headlines")
+
+                                    # Create expandable sections for headlines
+                                    with st.expander(f"📰 View {len(headlines)} Recent Headlines", expanded=False):
+                                        for i, headline in enumerate(headlines[:10]):  # Show max 10 headlines
+                                            st.markdown(f"**{i + 1}.** {headline}")
+
+                                    # Sentiment trend indicator
+                                    if score > 0.05:
+                                        st.success("📈 Positive news sentiment may indicate bullish market sentiment")
+                                    elif score < -0.05:
+                                        st.warning("📉 Negative news sentiment may indicate bearish market sentiment")
+                                    else:
+                                        st.info("⚖️ Neutral news sentiment - mixed or balanced coverage")
+
+                                else:
+                                    st.info("No recent headlines found for sentiment analysis")
+
+                            else:
+                                st.warning("Could not load sentiment data")
+
+                        except Exception as e:
+                            st.error(f"Error loading sentiment analysis: {e}")
+
+                        st.markdown("---")  # Add separator before next section
+
         else:
             st.error(f"Stock {symbol} not found")
 

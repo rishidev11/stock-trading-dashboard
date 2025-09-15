@@ -9,7 +9,8 @@ from backend.database import engine, Base
 from backend.models import User, Holding, Transaction
 import backend.auth as auth
 import backend.portfolio as portfolio
-
+from backend import models
+import numpy as np
 app = FastAPI()
 
 # Create tables
@@ -18,6 +19,13 @@ Base.metadata.create_all(bind=engine)
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 
+def clean_for_json(df):
+    """Clean DataFrame to remove NaN, inf, -inf values that break JSON serialization"""
+    # Replace infinity values with None
+    df = df.replace([np.inf, -np.inf], None)
+    # Replace NaN values with None
+    df = df.fillna(None)
+    return df
 
 @app.get("/")
 def main():
@@ -50,7 +58,7 @@ def stock_price(symbol: str, target_currency: str = Query("USD")):
             "currency": target_currency
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching data for {symbol}")
+        raise HTTPException(status_code=404, detail=f"Error fetching data for {symbol}")
 
 
 @app.get("/api/stock/{symbol}/history")
@@ -63,6 +71,8 @@ def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str 
 
         if hist.empty:
             raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
+
+        #hist = clean_for_json(hist)
 
         # Convert historical OHLCV data into JSON-friendly format
         history_data = []
