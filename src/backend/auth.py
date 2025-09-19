@@ -10,7 +10,7 @@ from fastapi import Security
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from backend.database import get_db
 
-# Secret key made public for testing purposes
+# secret key used for testing purposes, TODO: Put in environment variable
 SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -64,7 +64,6 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# Change this line
 security = HTTPBearer()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):

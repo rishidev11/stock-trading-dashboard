@@ -78,6 +78,7 @@ def add_technical_features(df):
 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
+# key for testing, TODO: Put in environment variables
 key = "53746e59369d4b3db63904264741f5a3"
 def fetch_news_headlines(symbol):
     url = f"https://newsapi.org/v2/everything?q={symbol}&apiKey={key}"

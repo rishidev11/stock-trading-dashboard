@@ -1,31 +1,27 @@
 from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
-from typing import Optional
 import pandas as pd
 from backend.utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
-import requests
 from backend.database import engine, Base
-from backend.models import User, Holding, Transaction
 import backend.auth as auth
 import backend.portfolio as portfolio
-from backend import models
-import numpy as np
-app = FastAPI()
 
+
+app = FastAPI()
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 
-def clean_for_json(df):
-    """Clean DataFrame to remove NaN, inf, -inf values that break JSON serialization"""
-    # Replace infinity values with None
-    df = df.replace([np.inf, -np.inf], None)
-    # Replace NaN values with None
-    df = df.fillna(None)
-    return df
+import math
+
+def clean_number(x):
+    if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
+        return 0.0
+    return round(float(x), 2)
+
 
 @app.get("/")
 def main():
@@ -72,21 +68,25 @@ def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str 
         if hist.empty:
             raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
 
-        #hist = clean_for_json(hist)
-
         # Convert historical OHLCV data into JSON-friendly format
         history_data = []
         base_currency = info.get("currency", "USD")
         rate = get_conversion_rate(base_currency, target_currency)
 
+        print(hist[hist.isna().any(axis=1)])
+
         for date, row in hist.iterrows():
+            # skip dividend-only rows
+            if pd.isna(row['Open']) or pd.isna(row['Close']):
+                continue
+
             history_data.append({
                 "date": date.strftime("%Y-%m-%d"),
-                "open": round(row['Open'] * rate, 2),
-                "high": round(row['High'] * rate, 2),
-                "low": round(row['Low'] * rate, 2),
-                "close": round(row['Close'] * rate, 2),
-                "volume": int(row['Volume'])
+                "open": clean_number(row['Open'] * rate),
+                "high": clean_number(row['High'] * rate),
+                "low": clean_number(row['Low'] * rate),
+                "close": clean_number(row['Close'] * rate),
+                "volume": int(row['Volume']) if not pd.isna(row['Volume']) else 0
             })
 
         return {
@@ -103,7 +103,7 @@ def predict_price(symbol: str, windowSize: int = Query(3), target_currency: str 
     ticker = yf.Ticker(symbol)
     info = ticker.info
 
-    hist = ticker.history(period='3mo')  # Get data directly instead of calling your own API
+    hist = ticker.history(period='3mo')
 
     if hist.empty:
         raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
