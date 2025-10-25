@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from backend.database import engine, Base
 import backend.auth as auth
 import backend.portfolio as portfolio
+import math
 
 
 app = FastAPI()
@@ -14,8 +15,6 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
-
-import math
 
 def clean_number(x):
     if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
@@ -28,7 +27,7 @@ def main():
     # Root endpoint returns a welcome message
     return {"message": "Hello, welcome to the Trading Dashboard API"}
 
-
+# Get stock data for a given symbol
 @app.get("/api/stock/{symbol}")
 def stock_price(symbol: str, target_currency: str = Query("USD")):
     try:
@@ -57,13 +56,13 @@ def stock_price(symbol: str, target_currency: str = Query("USD")):
         raise HTTPException(status_code=404, detail=f"Error fetching data for {symbol}")
 
 
+# Get OHLCV data for a stock over a given time period
 @app.get("/api/stock/{symbol}/history")
 def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str = Query("USD")):
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info
         hist = ticker.history(period=period)
-        # Apply rate to all values: row['Open'] * rate, etc.
 
         if hist.empty:
             raise HTTPException(status_code=404, detail=f"No historical data found for {symbol}")
@@ -72,8 +71,6 @@ def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str 
         history_data = []
         base_currency = info.get("currency", "USD")
         rate = get_conversion_rate(base_currency, target_currency)
-
-        print(hist[hist.isna().any(axis=1)])
 
         for date, row in hist.iterrows():
             # skip dividend-only rows
@@ -97,7 +94,7 @@ def stock_history(symbol: str, period: str = Query('3mo'), target_currency: str 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching history for {symbol}")
 
-
+# Endpoint to provide next day's closing price prediction
 @app.get("/api/stock/{symbol}/predict")
 def predict_price(symbol: str, windowSize: int = Query(3), target_currency: str = Query("USD")):
     ticker = yf.Ticker(symbol)

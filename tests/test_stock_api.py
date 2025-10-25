@@ -1,4 +1,3 @@
-# tests/test_stock_api.py
 def test_stock_price_invalid_symbol(client, monkeypatch):
     def mock_ticker(symbol):
         class MockTicker:

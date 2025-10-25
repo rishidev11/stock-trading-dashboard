@@ -1,4 +1,3 @@
-# tests/test_portfolio_calculations.py
 from src.backend.models import Holding, User
 
 def test_unrealised_pnl_calculation(db_session):

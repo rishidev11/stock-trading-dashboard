@@ -1,4 +1,3 @@
-# tests/conftest.py
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -6,9 +5,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.backend.database import Base, get_db
 from src.backend.main import app
-
-# Import all your models so they're registered with Base
-from src.backend.models import User, Transaction, Holding  # Import your actual model classes
 
 # Use in-memory SQLite with a shared connection
 SQLALCHEMY_TEST_URL = "sqlite:///:memory:"
@@ -22,9 +18,9 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+# Create all tables at the start of the test session
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
-    """Create all tables at the start of the test session."""
     print(f"Creating tables: {Base.metadata.tables.keys()}")
     Base.metadata.create_all(bind=engine)
 
@@ -37,9 +33,9 @@ def setup_db():
     Base.metadata.drop_all(bind=engine)
 
 
+# Provide a fresh database session for each test
 @pytest.fixture(scope="function")
 def db_session():
-    """Provide a fresh database session for each test."""
     session = TestingSessionLocal()
     try:
         yield session
@@ -47,7 +43,7 @@ def db_session():
         session.close()
 
 
-# Override get_db in FastAPI - SIMPLIFIED VERSION
+# Override get_db in FastAPI
 def override_get_db():
     session = TestingSessionLocal()
     try:
@@ -59,9 +55,9 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+# Test client for calling FastAPI endpoints
 @pytest.fixture
 def client():
-    """Test client for calling FastAPI endpoints."""
     # Clear any existing data before each test
     with engine.connect() as connection:
         for table in reversed(Base.metadata.sorted_tables):

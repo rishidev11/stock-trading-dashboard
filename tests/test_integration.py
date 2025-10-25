@@ -1,4 +1,3 @@
-# tests/test_integration.py
 def test_register_login_and_portfolio_flow(client):
     # Register & login
     client.post("/auth/register", json={"email": "flow@x.com", "password": "pw"})

@@ -1,4 +1,3 @@
-# tests/test_models.py
 from src.backend import models
 
 def test_user_model(db_session):

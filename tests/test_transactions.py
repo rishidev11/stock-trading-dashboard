@@ -1,4 +1,3 @@
-# tests/test_transactions.py
 def auth_header(client):
     client.post("/auth/register", json={"email": "t@x.com", "password": "pw"})
     token = client.post("/auth/login", json={"email": "t@x.com", "password": "pw"}).json()["access_token"]

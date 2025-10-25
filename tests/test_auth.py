@@ -1,4 +1,3 @@
-# tests/test_auth.py
 def test_register_and_login(client):
     # Register user
     response = client.post("/auth/register", json={"email": "test@example.com", "password": "password"})
