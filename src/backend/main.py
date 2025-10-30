@@ -1,11 +1,11 @@
 from fastapi import FastAPI, HTTPException, Query
 import yfinance as yf
 import pandas as pd
-from backend.utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
+from .utils import get_conversion_rate, convert_currency, add_technical_features, fetch_news_headlines, analyze_sentiment
 from sklearn.ensemble import RandomForestRegressor
-from backend.database import engine, Base
-import backend.auth as auth
-import backend.portfolio as portfolio
+from .database import engine, Base
+from . import auth
+from . import portfolio
 import math
 
 

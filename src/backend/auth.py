@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-import backend.models as models
+from . import models
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from backend.database import get_db
+from .database import get_db
 
 # secret key used for testing purposes
 # TODO: Put in environment variable
